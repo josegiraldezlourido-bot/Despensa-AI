@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DespensaAI — Tu nutricionista y entrenador personal</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0d1a10;
+      --surface: rgba(255,255,255,0.04);
+      --border: rgba(134,188,143,0.15);
+      --green: #4a9e6a;
+      --green-light: #86bc8f;
+      --text: #e8f0e9;
+      --muted: #7a9e7e;
+      --orange: #e07a3a;
+      --blue: #3a7ae0;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+    input, textarea, button, select { font-family: inherit; }
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: rgba(134,188,143,0.2); border-radius: 2px; }
+
+    /* HEADER */
+    header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: rgba(13,26,16,0.95); backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 20; }
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo-icon { width: 32px; height: 32px; border-radius: 9px; background: linear-gradient(135deg,#86bc8f,#4a9e6a); display: flex; align-items: center; justify-content: center; font-size: 16px; }
+    .logo-name { font-weight: 800; font-size: 14px; letter-spacing: -0.4px; }
+    .logo-sub { font-size: 10px; color: var(--green-light); opacity: 0.7; }
+    .tabs { display: flex; background: rgba(255,255,255,0.05); border-radius: 10px; padding: 3px; gap: 2px; }
+    .tab-btn { background: transparent; border: none; border-radius: 8px; padding: 6px 10px; color: var(--muted); font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+    .tab-btn.active { background: var(--green); color: #fff; }
+
+    /* LAYOUT */
+    main { flex: 1; max-width: 680px; width: 100%; margin: 0 auto; padding: 0 16px; display: flex; flex-direction: column; }
+    .tab-content { display: none; flex: 1; flex-direction: column; }
+    .tab-content.active { display: flex; }
+
+    /* CALORIES STEP */
+    .calories-wrap { padding: 40px 0 32px; }
+    .step-hero { text-align: center; margin-bottom: 32px; }
+    .step-emoji { font-size: 48px; margin-bottom: 12px; }
+    .step-title { font-size: 24px; font-weight: 800; letter-spacing: -0.8px; background: linear-gradient(135deg,#e8f0e9,#86bc8f); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }
+    .step-sub { color: var(--muted); font-size: 14px; }
+    .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+    .preset-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 12px; cursor: pointer; text-align: left; transition: all 0.15s; }
+    .preset-btn.selected { background: rgba(74,158,106,0.2); border-color: var(--green); }
+    .preset-kcal { color: var(--green-light); font-weight: 800; font-size: 20px; }
+    .preset-label { color: var(--text); font-weight: 600; font-size: 13px; margin-top: 2px; }
+    .preset-sub { color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .field-label { font-size: 12px; color: var(--green-light); font-weight: 600; display: block; margin-bottom: 8px; }
+    .field-row { display: flex; gap: 10px; align-items: center; margin-bottom: 22px; }
+    .field-input { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; color: var(--text); font-size: 15px; outline: none; }
+    .field-input:focus { border-color: var(--green-light); }
+    .field-unit { color: var(--muted); font-size: 13px; white-space: nowrap; }
+    .primary-btn { width: 100%; background: linear-gradient(135deg,#4a9e6a,#2d7a4a); color: #fff; border: none; border-radius: 14px; padding: 15px; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 8px 24px rgba(74,158,106,0.35); transition: all 0.2s; }
+    .primary-btn:disabled { background: rgba(255,255,255,0.04); color: #3a4e3e; box-shadow: none; cursor: not-allowed; }
+    .primary-btn.orange { background: linear-gradient(135deg,#e07a3a,#b85a20); box-shadow: 0 8px 24px rgba(224,122,58,0.35); }
+
+    /* CHAT PANEL */
+    .chat-panel { display: flex; flex-direction: column; height: calc(100vh - 68px); }
+    .chat-bar { padding: 10px 0; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+    .chat-bar-info { display: flex; gap: 12px; font-size: 13px; align-items: center; }
+    .reset-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
+    .messages { flex: 1; overflow-y: auto; padding: 16px 0; }
+    .bubble-wrap { display: flex; margin-bottom: 14px; }
+    .bubble-wrap.user { justify-content: flex-end; }
+    .ai-avatar { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg,#86bc8f,#4a9e6a); display: flex; align-items: center; justify-content: center; font-size: 14px; margin-right: 8px; flex-shrink: 0; margin-top: 2px; }
+    .ai-avatar.orange { background: linear-gradient(135deg,#e0943a,#b85a20); }
+    .bubble { max-width: 84%; border-radius: 4px 16px 16px 16px; padding: 12px 15px; font-size: 14px; line-height: 1.65; white-space: pre-wrap; border: 1px solid rgba(255,255,255,0.07); background: rgba(255,255,255,0.05); color: var(--text); }
+    .bubble.user { border-radius: 16px 4px 16px 16px; background: rgba(74,158,106,0.18); border-color: rgba(74,158,106,0.3); color: #c8e6cc; }
+    .bubble.orange-bubble { border-radius: 4px 16px 16px 16px; background: rgba(224,122,58,0.1); border-color: rgba(224,122,58,0.2); }
+    .typing { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+    .typing-bubble { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.07); border-radius: 4px 16px 16px 16px; padding: 12px 18px; display: flex; gap: 5px; align-items: center; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green-light); animation: pulse 1.2s ease-in-out infinite; }
+    .dot.orange { background: var(--orange); }
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes pulse { 0%,100%{opacity:.3;transform:scale(.8)} 50%{opacity:1;transform:scale(1)} }
+    .suggestions { padding-bottom: 8px; display: flex; gap: 6px; overflow-x: auto; flex-shrink: 0; }
+    .suggestions::-webkit-scrollbar { display: none; }
+    .sug-btn { background: rgba(134,188,143,0.08); border: 1px solid var(--border); border-radius: 20px; padding: 6px 12px; font-size: 11px; color: #a0c8a4; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+    .sug-btn.orange { background: rgba(224,122,58,0.08); border-color: rgba(224,122,58,0.2); color: #e0943a; }
+    .chat-input-row { padding: 10px 0 16px; display: flex; gap: 10px; align-items: flex-end; flex-shrink: 0; }
+    .chat-textarea { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px 15px; color: var(--text); font-size: 14px; resize: none; outline: none; line-height: 1.5; }
+    .chat-textarea:focus { border-color: var(--green-light); }
+    .send-btn { background: linear-gradient(135deg,#4a9e6a,#2d7a4a); border: none; border-radius: 14px; width: 44px; height: 44px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #fff; transition: all 0.15s; }
+    .send-btn.orange { background: linear-gradient(135deg,#e07a3a,#b85a20); }
+    .send-btn:disabled { background: rgba(255,255,255,0.05); cursor: not-allowed; }
+
+    /* LOADING */
+    .loading-center { text-align: center; padding: 60px 0; }
+    .loading-emoji { font-size: 40px; margin-bottom: 12px; }
+    .loading-title { color: var(--green-light); font-weight: 600; margin-bottom: 6px; }
+    .loading-title.orange { color: var(--orange); }
+    .loading-sub { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+    .dots-center { display: flex; justify-content: center; gap: 5px; }
+
+    /* EXERCISE CARDS */
+    .exercise-card { background: var(--surface); border: 1px solid rgba(224,122,58,0.2); border-radius: 16px; overflow: hidden; margin-bottom: 16px; }
+    .exercise-img-wrap { position: relative; height: 180px; overflow: hidden; background: rgba(224,122,58,0.05); display: flex; align-items: center; justify-content: center; }
+    .exercise-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
+    .exercise-img-placeholder { font-size: 60px; }
+    .exercise-body { padding: 14px 16px; }
+    .exercise-name { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+    .exercise-meta { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+    .exercise-badge { background: rgba(224,122,58,0.15); border: 1px solid rgba(224,122,58,0.25); color: var(--orange); border-radius: 6px; padding: 3px 8px; font-size: 11px; font-weight: 600; }
+    .exercise-steps { padding-left: 16px; }
+    .exercise-steps li { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 4px; }
+    .exercise-steps li strong { color: var(--text); }
+
+    /* SUPPLEMENT CARDS */
+    .supps-grid { display: grid; gap: 12px; }
+    .supp-card { background: var(--surface); border: 1px solid rgba(58,122,224,0.2); border-radius: 14px; padding: 14px 16px; display: flex; gap: 14px; align-items: flex-start; }
+    .supp-icon { font-size: 32px; flex-shrink: 0; }
+    .supp-name { font-weight: 700; font-size: 14px; margin-bottom: 3px; color: #6eaaff; }
+    .supp-desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
+    .supp-dose { font-size: 12px; color: #3a7ae0; font-weight: 600; margin-top: 5px; }
+
+    /* TRAINING SETUP */
+    .training-setup { padding: 32px 0; }
+    .days-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 8px; margin-bottom: 24px; }
+    .day-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 6px; text-align: center; cursor: pointer; transition: all 0.15s; }
+    .day-btn.selected { background: rgba(224,122,58,0.2); border-color: var(--orange); }
+    .day-btn .day-name { font-size: 11px; font-weight: 700; color: var(--muted); }
+    .day-btn.selected .day-name { color: var(--orange); }
+    .day-btn .day-num { font-size: 18px; font-weight: 800; color: var(--text); margin-top: 2px; }
+    .goal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
+    .goal-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; cursor: pointer; text-align: left; transition: all 0.15s; }
+    .goal-btn.selected { background: rgba(224,122,58,0.15); border-color: var(--orange); }
+    .goal-icon { font-size: 26px; margin-bottom: 6px; }
+    .goal-label { font-weight: 700; font-size: 14px; }
+    .goal-sub { color: var(--muted); font-size: 12px; margin-top: 3px; }
+
+    /* SCANNER */
+    .scanner-wrap { padding: 24px 0; flex: 1; overflow-y: auto; }
+    .scanner-title { font-size: 19px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 6px; }
+    .scanner-sub { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+    .drop-zone { border: 2px dashed var(--border); border-radius: 18px; padding: 28px 20px; text-align: center; cursor: pointer; margin-bottom: 20px; transition: all 0.2s; background: var(--surface); position: relative; overflow: hidden; }
+    .drop-zone:hover { border-color: var(--green-light); background: rgba(74,158,106,0.05); }
+    .drop-zone img { width: 100%; max-height: 240px; object-fit: cover; border-radius: 12px; margin-bottom: 10px; display: block; }
+    .scan-overlay { position: absolute; inset: 0; background: rgba(13,26,16,0.88); display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 16px; }
+    .scan-result { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px; margin-bottom: 24px; white-space: pre-wrap; font-size: 14px; line-height: 1.7; }
+    .history-label { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; }
+    .history-item { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px; display: flex; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
+    .history-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 9px; flex-shrink: 0; }
+    .history-meta { color: var(--muted); font-size: 11px; margin-bottom: 4px; }
+    .history-text { font-size: 13px; color: var(--text); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+
+    /* STEP INDICATOR */
+    .step-dots { display: flex; justify-content: center; gap: 6px; margin-bottom: 28px; }
+    .step-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); transition: all 0.2s; }
+    .step-dot.active { background: var(--orange); width: 20px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🥗</div>
+    <div>
+      <div class="logo-name">DespensaAI</div>
+      <div class="logo-sub">nutricionista &amp; entrenador</div>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('planner')">🥗 Nutrición</button>
+    <button class="tab-btn" onclick="switchTab('training')">💪 Entreno</button>
+    <button class="tab-btn" onclick="switchTab('scanner')">📸 Escáner</button>
+  </div>
+</header>
+
+<main>
+
+<!-- ════════════ NUTRICIÓN ════════════ -->
+<div id="tab-planner" class="tab-content active">
+
+  <div id="step-calories" class="calories-wrap">
+    <div class="step-hero">
+      <div class="step-emoji">🎯</div>
+      <div class="step-title">¿Cuántas calorías hoy?</div>
+      <div class="step-sub">La IA te preguntará qué tienes en casa y creará tu plan con suplementos</div>
+    </div>
+    <div class="preset-grid">
+      <button class="preset-btn" onclick="selectCalories('1400',this)"><div class="preset-kcal">1400</div><div class="preset-label">Déficit fuerte</div><div class="preset-sub">-500 kcal/día</div></button>
+      <button class="preset-btn" onclick="selectCalories('1700',this)"><div class="preset-kcal">1700</div><div class="preset-label">Déficit ligero</div><div class="preset-sub">-200 kcal/día</div></button>
+      <button class="preset-btn" onclick="selectCalories('2000',this)"><div class="preset-kcal">2000</div><div class="preset-label">Mantenimiento</div><div class="preset-sub">peso estable</div></button>
+      <button class="preset-btn" onclick="selectCalories('2400',this)"><div class="preset-kcal">2400</div><div class="preset-label">Volumen</div><div class="preset-sub">ganar músculo</div></button>
+    </div>
+    <label class="field-label">O escribe tu número exacto:</label>
+    <div class="field-row">
+      <input id="cal-input" class="field-input" type="number" placeholder="ej. 1850" oninput="onCalInput(this.value)" />
+      <span class="field-unit">kcal/día</span>
+    </div>
+    <button id="start-btn" class="primary-btn" disabled onclick="startInventory()">Empezar inventario →</button>
+  </div>
+
+  <div id="step-inventory" class="chat-panel" style="display:none">
+    <div class="chat-bar">
+      <div class="chat-bar-info"><span>🎯 <strong id="inv-kcal-label"></strong> kcal</span><span style="color:var(--muted);font-size:12px">Inventario en curso</span></div>
+      <button class="reset-btn" onclick="resetPlanner()">↩ Reiniciar</button>
+    </div>
+    <div id="inv-messages" class="messages"></div>
+    <div id="inv-suggestions" class="suggestions" style="display:none">
+      <button class="sug-btn" onclick="setInput('inv-input','Tengo huevos, pollo y arroz')">Huevos, pollo, arroz</button>
+      <button class="sug-btn" onclick="setInput('inv-input','Solo verduras y legumbres')">Solo verduras</button>
+      <button class="sug-btn" onclick="setInput('inv-input','Tengo bastante variedad')">Tengo variedad</button>
+      <button class="sug-btn" onclick="setInput('inv-input','Con esto ya tienes suficiente, genera el plan')">Genera el plan ya</button>
+    </div>
+    <div class="chat-input-row">
+      <textarea id="inv-input" class="chat-textarea" rows="1" placeholder="Cuéntale qué tienes en casa..." onkeydown="handleKey(event,'inv-input',sendInventoryMessage)"></textarea>
+      <button class="send-btn" onclick="sendInventoryMessage()">↑</button>
+    </div>
+  </div>
+
+  <div id="step-plan" class="chat-panel" style="display:none">
+    <div class="chat-bar">
+      <div class="chat-bar-info"><span>🎯 <strong id="plan-kcal-label"></strong> kcal/día</span><span style="color:var(--green-light);font-size:11px">✓ Plan + suplementos</span></div>
+      <button class="reset-btn" onclick="resetPlanner()">↩ Nuevo plan</button>
+    </div>
+    <div id="plan-messages" class="messages"></div>
+    <div class="suggestions">
+      <button class="sug-btn" onclick="setInput('plan-input','Cambia la cena por algo más ligero')">Cambia la cena</button>
+      <button class="sug-btn" onclick="setInput('plan-input','Quiero opción vegetariana')">Vegetariana</button>
+      <button class="sug-btn" onclick="setInput('plan-input','Más proteína en el almuerzo')">Más proteína</button>
+      <button class="sug-btn" onclick="setInput('plan-input','¿Qué me falta comprar?')">Lista compra</button>
+      <button class="sug-btn" onclick="setInput('plan-input','Explícame más sobre los suplementos')">Más suplementos</button>
+    </div>
+    <div class="chat-input-row">
+      <textarea id="plan-input" class="chat-textarea" rows="1" placeholder="Pide cambios al plan..." onkeydown="handleKey(event,'plan-input',sendPlanMessage)"></textarea>
+      <button class="send-btn" onclick="sendPlanMessage()">↑</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ════════════ ENTRENAMIENTO ════════════ -->
+<div id="tab-training" class="tab-content">
+
+  <div id="step-training-setup" class="training-setup">
+    <div class="step-hero">
+      <div class="step-emoji">💪</div>
+      <div class="step-title">Tu plan de entrenamiento</div>
+      <div class="step-sub">Selecciona días y objetivo — la IA crea tu rutina con ejercicios paso a paso</div>
+    </div>
+
+    <div class="step-dots">
+      <div class="step-dot active" id="tdot-1"></div>
+      <div class="step-dot" id="tdot-2"></div>
+      <div class="step-dot" id="tdot-3"></div>
+    </div>
+
+    <!-- Sub-step 1: days -->
+    <div id="tstep-days">
+      <label class="field-label" style="margin-bottom:14px">¿Cuántos días a la semana quieres entrenar?</label>
+      <div class="days-grid">
+        <div class="day-btn" onclick="toggleDay(1,this)"><div class="day-name">LUN</div><div class="day-num">1</div></div>
+        <div class="day-btn" onclick="toggleDay(2,this)"><div class="day-name">MAR</div><div class="day-num">2</div></div>
+        <div class="day-btn" onclick="toggleDay(3,this)"><div class="day-name">MIÉ</div><div class="day-num">3</div></div>
+        <div class="day-btn" onclick="toggleDay(4,this)"><div class="day-name">JUE</div><div class="day-num">4</div></div>
+        <div class="day-btn" onclick="toggleDay(5,this)"><div class="day-name">VIE</div><div class="day-num">5</div></div>
+        <div class="day-btn" onclick="toggleDay(6,this)"><div class="day-name">SÁB</div><div class="day-num">6</div></div>
+        <div class="day-btn" onclick="toggleDay(7,this)"><div class="day-name">DOM</div><div class="day-num">7</div></div>
+      </div>
+      <button class="primary-btn orange" id="days-next-btn" disabled onclick="showGoalStep()">Siguiente →</button>
+    </div>
+
+    <!-- Sub-step 2: goal -->
+    <div id="tstep-goal" style="display:none">
+      <label class="field-label" style="margin-bottom:14px">¿Cuál es tu objetivo principal?</label>
+      <div class="goal-grid">
+        <button class="goal-btn" onclick="selectGoal('Tonificar y definir músculo',this)"><div class="goal-icon">✨</div><div class="goal-label">Tonificar</div><div class="goal-sub">Definir y endurecer</div></button>
+        <button class="goal-btn" onclick="selectGoal('Ganar masa muscular',this)"><div class="goal-icon">💪</div><div class="goal-label">Muscular</div><div class="goal-sub">Volumen y fuerza</div></button>
+        <button class="goal-btn" onclick="selectGoal('Perder grasa y peso',this)"><div class="goal-icon">🔥</div><div class="goal-label">Perder grasa</div><div class="goal-sub">Quemar y adelgazar</div></button>
+        <button class="goal-btn" onclick="selectGoal('Mejorar resistencia y cardio',this)"><div class="goal-icon">🏃</div><div class="goal-label">Resistencia</div><div class="goal-sub">Cardio y energía</div></button>
+        <button class="goal-btn" onclick="selectGoal('Mejorar la salud general y movilidad',this)"><div class="goal-icon">🧘</div><div class="goal-label">Salud general</div><div class="goal-sub">Movilidad y bienestar</div></button>
+        <button class="goal-btn" onclick="selectGoal('Fuerza y potencia',this)"><div class="goal-icon">🏋️</div><div class="goal-label">Fuerza</div><div class="goal-sub">Potencia máxima</div></button>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="reset-btn" style="flex:1;padding:12px" onclick="showDaysStep()">← Atrás</button>
+        <button class="primary-btn orange" id="goal-next-btn" disabled style="flex:2" onclick="showLevelStep()">Siguiente →</button>
+      </div>
+    </div>
+
+    <!-- Sub-step 3: level + start -->
+    <div id="tstep-level" style="display:none">
+      <label class="field-label" style="margin-bottom:14px">¿Cuál es tu nivel actual?</label>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px">
+        <button class="goal-btn" onclick="selectLevel('Principiante (menos de 6 meses)',this)" style="display:flex;align-items:center;gap:12px;padding:14px 16px"><span style="font-size:22px">🌱</span><div><div class="goal-label">Principiante</div><div class="goal-sub">Menos de 6 meses</div></div></button>
+        <button class="goal-btn" onclick="selectLevel('Intermedio (6 meses - 2 años)',this)" style="display:flex;align-items:center;gap:12px;padding:14px 16px"><span style="font-size:22px">⚡</span><div><div class="goal-label">Intermedio</div><div class="goal-sub">6 meses – 2 años</div></div></button>
+        <button class="goal-btn" onclick="selectLevel('Avanzado (más de 2 años)',this)" style="display:flex;align-items:center;gap:12px;padding:14px 16px"><span style="font-size:22px">🏆</span><div><div class="goal-label">Avanzado</div><div class="goal-sub">Más de 2 años</div></div></button>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="reset-btn" style="flex:1;padding:12px" onclick="showGoalStep()">← Atrás</button>
+        <button class="primary-btn orange" id="level-next-btn" disabled style="flex:2" onclick="startTrainingChat()">Crear mi rutina 🔥</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Training chat -->
+  <div id="step-training-chat" class="chat-panel" style="display:none">
+    <div class="chat-bar">
+      <div class="chat-bar-info">
+        <span>💪 <strong id="train-days-label"></strong> días/semana</span>
+        <span style="color:var(--orange);font-size:11px" id="train-goal-label"></span>
+      </div>
+      <button class="reset-btn" onclick="resetTraining()">↩ Nueva rutina</button>
+    </div>
+    <div id="train-messages" class="messages"></div>
+    <div class="suggestions">
+      <button class="sug-btn orange" onclick="setInput('train-input','Muéstrame los ejercicios del día 1')">Ejercicios día 1</button>
+      <button class="sug-btn orange" onclick="setInput('train-input','¿Cómo hago correctamente las sentadillas?')">Técnica sentadilla</button>
+      <button class="sug-btn orange" onclick="setInput('train-input','Quiero sustituir algún ejercicio')">Sustituir ejercicio</button>
+      <button class="sug-btn orange" onclick="setInput('train-input','¿Cómo combino el entreno con mi plan de comidas?')">Nutrición + entreno</button>
+    </div>
+    <div class="chat-input-row">
+      <textarea id="train-input" class="chat-textarea" rows="1" placeholder="Pregunta sobre tu rutina..." onkeydown="handleKey(event,'train-input',sendTrainingMessage)"></textarea>
+      <button class="send-btn orange" onclick="sendTrainingMessage()">↑</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ════════════ ESCÁNER ════════════ -->
+<div id="tab-scanner" class="tab-content">
+  <div class="scanner-wrap">
+    <div class="scanner-title">📸 Escáner de platos</div>
+    <div class="scanner-sub">Fotografía cualquier comida y calcula sus calorías al instante</div>
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('scan-file').click()">
+      <div id="drop-content">
+        <div style="font-size:44px;margin-bottom:10px">🍽️</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:4px">Toca para subir foto</div>
+        <div style="color:var(--muted);font-size:13px">La IA detecta ingredientes y calcula calorías</div>
+      </div>
+    </div>
+    <input type="file" id="scan-file" accept="image/*" style="display:none" onchange="handleScanPhoto(this)" />
+    <div id="scan-result" style="display:none" class="scan-result"></div>
+    <div id="scan-history"></div>
+  </div>
+</div>
+
+</main>
+
+<script>
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let calories = "";
+let inventoryText = "";
+let invApiMessages = [];
+let planText = "";
+let planApiMessages = [];
+let invLoading = false;
+let planLoading = false;
+
+let trainingDays = [];
+let trainingGoal = "";
+let trainingLevel = "";
+let trainApiMessages = [];
+let trainLoading = false;
+
+let scanHistory = [];
+
+// ═══════════════════════════════════════
+// SYSTEM PROMPTS
+// ═══════════════════════════════════════
+const INVENTORY_SYSTEM = `Eres un nutricionista personal amigable. Haz un inventario de alimentos del usuario mediante preguntas de chat.
+
+FLUJO (UNA categoría por mensaje):
+1. Saluda y pregunta por PROTEÍNAS (carnes, huevos, pescado, legumbres, lácteos).
+2. Pregunta por CARBOHIDRATOS (pasta, arroz, pan, patatas, cereales).
+3. Pregunta por VERDURAS Y FRUTAS.
+4. Pregunta por GRASAS Y OTROS (aceite, mantequilla, salsas, especias).
+5. Con al menos 2 rondas de respuestas, ofrece generar el plan.
+
+CRÍTICO: Cuando el usuario quiera generar el plan responde ÚNICAMENTE con el token exacto: [PLAN_LISTO]
+Nada más. Solo ese token.
+
+Español, tono cercano, emojis moderados.`;
+
+const PLAN_SYSTEM = `Eres un nutricionista experto. Crea un plan de comidas completo para el día y añade una sección de suplementos recomendados.
+
+FORMATO EXACTO DEL PLAN:
+
+━━━ 📋 TU PLAN DE HOY ━━━
+
+🌅 DESAYUNO (~X kcal)
+• Plato: [nombre]
+• Ingredientes: [cantidades exactas]
+• Preparación: [1-2 frases]
+
+☀️ ALMUERZO (~X kcal)
+• Plato: [nombre]
+• Ingredientes: [cantidades exactas]
+• Preparación: [1-2 frases]
+
+🌙 CENA (~X kcal)
+• Plato: [nombre]
+• Ingredientes: [cantidades exactas]
+• Preparación: [1-2 frases]
+
+🍎 SNACKS (~X kcal)
+• [2-3 opciones con calorías]
+
+📊 TOTALES: ~X kcal | Proteínas: Xg | Carbos: Xg | Grasas: Xg
+
+━━━ 💊 SUPLEMENTOS RECOMENDADOS ━━━
+
+Para cada suplemento usa este formato:
+[EMOJI] [NOMBRE]
+Para qué sirve: [beneficio concreto relacionado con el objetivo del usuario]
+Cuándo tomarlo: [momento del día y con qué]
+Dosis recomendada: [cantidad]
+
+Recomienda entre 3 y 5 suplementos relevantes según las calorías y el inventario del usuario (ej: si tiene poco calcio → calcio; si entrena → proteína whey; déficit calórico → multivitamínico).
+
+Usa SOLO ingredientes del inventario para las comidas. Si falta algo importante, indícalo.
+Responde en español.`;
+
+const TRAINING_SYSTEM = `Eres un entrenador personal experto y motivador. Creas rutinas de entrenamiento personalizadas y explicas cada ejercicio con detalle.
+
+Cuando el usuario te da su configuración, crea una rutina semanal completa.
+
+FORMATO DE LA RUTINA:
+
+━━━ 💪 TU RUTINA SEMANAL ━━━
+Objetivo: [objetivo] | Nivel: [nivel] | [X] días/semana
+
+Para cada día de entrenamiento:
+
+📅 DÍA X — [GRUPO MUSCULAR / TIPO]
+Duración estimada: X min | Descanso entre series: X seg
+
+Luego lista los ejercicios con este formato exacto para CADA ejercicio:
+[NÚMERO]. [NOMBRE DEL EJERCICIO]
+🔢 Series x repeticiones: [ej. 3x12] o [ej. 3x45 seg]
+🎯 Músculos: [músculos trabajados]
+📝 Ejecución paso a paso:
+  1. [paso]
+  2. [paso]
+  3. [paso]
+  4. [paso]
+⚠️ Error común: [error a evitar]
+💡 Consejo: [consejo de forma o progresión]
+[IMAGEN: nombre-ejercicio-en-ingles] ← pon esto al final de cada ejercicio para que el sistema busque la imagen
+
+Al final añade:
+━━━ 🔄 RECUPERACIÓN Y DESCANSO ━━━
+[consejos de recuperación]
+
+━━━ 🤝 SINERGIA CON TU NUTRICIÓN ━━━
+[cómo combinar con la nutrición]
+
+En el chat posterior responde preguntas, explica técnica, sugiere alternativas.
+Español, tono motivador.`;
+
+const SCANNER_SYSTEM = `Eres un experto en nutrición. Analiza la foto de comida y responde con:
+
+🍽️ [Nombre del plato estimado]
+
+Ingredientes detectados:
+• [ingrediente] — [cantidad aprox] — [kcal]
+• ...
+
+Resumen nutricional:
+🔥 Calorías totales: ~X kcal
+💪 Proteínas: ~Xg
+🍞 Carbohidratos: ~Xg
+🫙 Grasas: ~Xg
+
+💡 [Un consejo nutricional breve]
+
+Si no es comida, dilo amablemente. Español siempre.`;
+
+// ═══════════════════════════════════════
+// API
+// ═══════════════════════════════════════
+async function callClaude(messages, system, maxTokens = 1500) {
+  const res = await fetch("/api/claude", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages, system, max_tokens: maxTokens }),
+  });
+  if (!res.ok) throw new Error("Error servidor: " + res.status);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message || "Error API");
+  return data.content?.map(b => b.text || "").join("") || "";
+}
+
+// ═══════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════
+function switchTab(tab) {
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
+  const tabs = ["planner","training","scanner"];
+  tabs.forEach((t,i) => {
+    if(t===tab) document.querySelectorAll(".tab-btn")[i].classList.add("active");
+  });
+  document.getElementById("tab-"+tab).classList.add("active");
+}
+
+// ═══════════════════════════════════════
+// NUTRICIÓN
+// ═══════════════════════════════════════
+function selectCalories(val, btn) {
+  calories = val;
+  document.getElementById("cal-input").value = val;
+  document.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("selected"));
+  btn.classList.add("selected");
+  document.getElementById("start-btn").disabled = false;
+}
+function onCalInput(val) {
+  calories = val;
+  document.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("selected"));
+  document.getElementById("start-btn").disabled = !val || parseInt(val) < 500;
+}
+
+async function startInventory() {
+  document.getElementById("step-calories").style.display = "none";
+  document.getElementById("step-inventory").style.display = "flex";
+  document.getElementById("inv-kcal-label").textContent = calories;
+  inventoryText = `Objetivo calórico: ${calories} kcal. `;
+  invLoading = true;
+  showTyping("inv-messages", "green");
+  const firstMsg = { role: "user", content: `Hola, mi objetivo es ${calories} kcal hoy. Ayúdame a inventariar lo que tengo en casa.` };
+  try {
+    const reply = await callClaude([firstMsg], INVENTORY_SYSTEM);
+    invApiMessages = [firstMsg, { role: "assistant", content: reply }];
+    hideTyping("inv-messages");
+    appendBubble("inv-messages", reply, false, "green");
+    document.getElementById("inv-suggestions").style.display = "flex";
+  } catch(e) {
+    hideTyping("inv-messages");
+    appendBubble("inv-messages", "❌ Error de conexión. Comprueba tu API key en Netlify.", false, "green");
+  }
+  invLoading = false;
+}
+
+async function sendInventoryMessage() {
+  if (invLoading) return;
+  const ta = document.getElementById("inv-input");
+  const text = ta.value.trim(); if (!text) return;
+  ta.value = "";
+  appendBubble("inv-messages", text, true, "green");
+  inventoryText += text + ". ";
+  invLoading = true; showTyping("inv-messages","green");
+  invApiMessages.push({ role: "user", content: text });
+  try {
+    const reply = await callClaude(invApiMessages, INVENTORY_SYSTEM);
+    invApiMessages.push({ role: "assistant", content: reply });
+    hideTyping("inv-messages");
+    if (reply.trim() === "[PLAN_LISTO]" || reply.includes("[PLAN_LISTO]")) {
+      appendBubble("inv-messages", "¡Perfecto! Tengo todo. Generando tu plan con suplementos... 🧠", false, "green");
+      invLoading = false;
+      generatePlan();
+    } else {
+      appendBubble("inv-messages", reply, false, "green");
+    }
+  } catch(e) {
+    hideTyping("inv-messages");
+    appendBubble("inv-messages", "❌ Error al responder. Inténtalo de nuevo.", false, "green");
+  }
+  invLoading = false;
+}
+
+async function generatePlan() {
+  document.getElementById("step-inventory").style.display = "none";
+  document.getElementById("step-plan").style.display = "flex";
+  document.getElementById("plan-kcal-label").textContent = calories;
+  planLoading = true;
+  const loader = createLoader("🧠", "Creando tu plan personalizado...", "Calculando macros y suplementos ideales", "green");
+  document.getElementById("plan-messages").appendChild(loader);
+
+  // Include training context if available
+  const trainCtx = trainingGoal ? ` El usuario entrena ${trainingDays.length} días/semana con objetivo: ${trainingGoal}.` : "";
+  const prompt = `Mi inventario: ${inventoryText}${trainCtx}\nObjetivo: ${calories} kcal/día.\nCrea mi plan de comidas completo con suplementos recomendados.`;
+  const firstMsg = { role: "user", content: prompt };
+  try {
+    const reply = await callClaude([firstMsg], PLAN_SYSTEM, 2000);
+    planText = reply; planApiMessages = [firstMsg, { role: "assistant", content: reply }];
+    loader.remove();
+    appendBubble("plan-messages", reply, false, "green");
+  } catch(e) {
+    loader.remove();
+    appendBubble("plan-messages", "❌ Error generando el plan. Inténtalo de nuevo.", false, "green");
+  }
+  planLoading = false;
+}
+
+async function sendPlanMessage() {
+  if (planLoading) return;
+  const ta = document.getElementById("plan-input");
+  const text = ta.value.trim(); if (!text) return;
+  ta.value = "";
+  appendBubble("plan-messages", text, true, "green");
+  planLoading = true; showTyping("plan-messages","green");
+  planApiMessages.push({ role: "user", content: text });
+  try {
+    const reply = await callClaude(planApiMessages, PLAN_SYSTEM);
+    planApiMessages.push({ role: "assistant", content: reply });
+    hideTyping("plan-messages");
+    appendBubble("plan-messages", reply, false, "green");
+  } catch(e) {
+    hideTyping("plan-messages");
+    appendBubble("plan-messages", "❌ Error. Inténtalo de nuevo.", false, "green");
+  }
+  planLoading = false;
+}
+
+function resetPlanner() {
+  calories = ""; inventoryText = ""; invApiMessages = []; planText = ""; planApiMessages = [];
+  document.getElementById("cal-input").value = "";
+  document.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("selected"));
+  document.getElementById("start-btn").disabled = true;
+  document.getElementById("inv-messages").innerHTML = "";
+  document.getElementById("plan-messages").innerHTML = "";
+  document.getElementById("step-inventory").style.display = "none";
+  document.getElementById("step-plan").style.display = "none";
+  document.getElementById("step-calories").style.display = "block";
+  document.getElementById("inv-suggestions").style.display = "none";
+}
+
+// ═══════════════════════════════════════
+// ENTRENAMIENTO
+// ═══════════════════════════════════════
+function toggleDay(n, btn) {
+  btn.classList.toggle("selected");
+  if (btn.classList.contains("selected")) { trainingDays.push(n); } else { trainingDays = trainingDays.filter(d => d !== n); }
+  document.getElementById("days-next-btn").disabled = trainingDays.length === 0;
+}
+
+function showGoalStep() {
+  document.getElementById("tstep-days").style.display = "none";
+  document.getElementById("tstep-goal").style.display = "block";
+  document.getElementById("tdot-1").classList.remove("active");
+  document.getElementById("tdot-2").classList.add("active");
+}
+function showDaysStep() {
+  document.getElementById("tstep-goal").style.display = "none";
+  document.getElementById("tstep-days").style.display = "block";
+  document.getElementById("tdot-2").classList.remove("active");
+  document.getElementById("tdot-1").classList.add("active");
+}
+function showLevelStep() {
+  document.getElementById("tstep-goal").style.display = "none";
+  document.getElementById("tstep-level").style.display = "block";
+  document.getElementById("tdot-2").classList.remove("active");
+  document.getElementById("tdot-3").classList.add("active");
+}
+function showGoalStep2() {
+  document.getElementById("tstep-level").style.display = "none";
+  document.getElementById("tstep-goal").style.display = "block";
+  document.getElementById("tdot-3").classList.remove("active");
+  document.getElementById("tdot-2").classList.add("active");
+}
+
+function selectGoal(goal, btn) {
+  trainingGoal = goal;
+  document.querySelectorAll(".goal-btn").forEach(b => b.classList.remove("selected"));
+  btn.classList.add("selected");
+  document.getElementById("goal-next-btn").disabled = false;
+}
+function selectLevel(level, btn) {
+  trainingLevel = level;
+  document.querySelectorAll("#tstep-level .goal-btn").forEach(b => b.classList.remove("selected"));
+  btn.classList.add("selected");
+  document.getElementById("level-next-btn").disabled = false;
+}
+
+async function startTrainingChat() {
+  document.getElementById("step-training-setup").style.display = "none";
+  document.getElementById("step-training-chat").style.display = "flex";
+  document.getElementById("train-days-label").textContent = trainingDays.length;
+  document.getElementById("train-goal-label").textContent = trainingGoal;
+
+  trainLoading = true;
+  showTyping("train-messages","orange");
+
+  const dayNames = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
+  const selectedDayNames = trainingDays.sort().map(d => dayNames[d-1]).join(", ");
+  const nutritionCtx = calories ? ` Su plan nutricional es de ${calories} kcal/día.` : "";
+  const prompt = `Quiero mi rutina de entrenamiento personalizada. Datos:
+- Días de entrenamiento: ${trainingDays.length} días/semana (${selectedDayNames})
+- Objetivo: ${trainingGoal}
+- Nivel: ${trainingLevel}${nutritionCtx}
+
+Crea mi rutina semanal completa con todos los ejercicios explicados paso a paso.`;
+
+  const firstMsg = { role: "user", content: prompt };
+  try {
+    const reply = await callClaude([firstMsg], TRAINING_SYSTEM, 2500);
+    trainApiMessages = [firstMsg, { role: "assistant", content: reply }];
+    hideTyping("train-messages");
+    renderTrainingReply("train-messages", reply);
+  } catch(e) {
+    hideTyping("train-messages");
+    appendBubble("train-messages", "❌ Error generando la rutina. Inténtalo de nuevo.", false, "orange");
+  }
+  trainLoading = false;
+}
+
+async function sendTrainingMessage() {
+  if (trainLoading) return;
+  const ta = document.getElementById("train-input");
+  const text = ta.value.trim(); if (!text) return;
+  ta.value = "";
+  appendBubble("train-messages", text, true, "orange");
+  trainLoading = true; showTyping("train-messages","orange");
+  trainApiMessages.push({ role: "user", content: text });
+  try {
+    const reply = await callClaude(trainApiMessages, TRAINING_SYSTEM, 1800);
+    trainApiMessages.push({ role: "assistant", content: reply });
+    hideTyping("train-messages");
+    renderTrainingReply("train-messages", reply);
+  } catch(e) {
+    hideTyping("train-messages");
+    appendBubble("train-messages", "❌ Error. Inténtalo de nuevo.", false, "orange");
+  }
+  trainLoading = false;
+}
+
+function renderTrainingReply(containerId, text) {
+  // Split by [IMAGEN: ...] tokens and render exercise images from Unsplash
+  const container = document.getElementById(containerId);
+  const wrap = document.createElement("div");
+  wrap.className = "bubble-wrap";
+
+  const avatar = document.createElement("div");
+  avatar.className = "ai-avatar orange";
+  avatar.textContent = "💪";
+  wrap.appendChild(avatar);
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble orange-bubble";
+  bubble.style.maxWidth = "84%";
+
+  // Parse [IMAGEN: keyword] tokens
+  const parts = text.split(/\[IMAGEN:\s*([^\]]+)\]/i);
+  parts.forEach((part, i) => {
+    if (i % 2 === 0) {
+      // Text part
+      if (part.trim()) {
+        const span = document.createElement("span");
+        span.style.whiteSpace = "pre-wrap";
+        span.textContent = part;
+        bubble.appendChild(span);
+      }
+    } else {
+      // Image keyword
+      const keyword = part.trim().replace(/\s+/g, "-").toLowerCase();
+      const imgWrap = document.createElement("div");
+      imgWrap.style.cssText = "margin: 10px 0; border-radius: 12px; overflow: hidden; border: 1px solid rgba(224,122,58,0.2);";
+      const img = document.createElement("img");
+      // Use Unsplash for exercise images
+      img.src = `https://source.unsplash.com/400x220/?${encodeURIComponent(keyword + " exercise fitness")}`;
+      img.alt = keyword;
+      img.style.cssText = "width:100%;height:180px;object-fit:cover;display:block;";
+      img.onerror = () => { imgWrap.style.display = "none"; };
+      imgWrap.appendChild(img);
+      bubble.appendChild(imgWrap);
+    }
+  });
+
+  wrap.appendChild(bubble);
+  container.appendChild(wrap);
+  wrap.scrollIntoView({ behavior: "smooth", block: "end" });
+}
+
+function resetTraining() {
+  trainingDays = []; trainingGoal = ""; trainingLevel = ""; trainApiMessages = [];
+  document.querySelectorAll(".day-btn").forEach(b => b.classList.remove("selected"));
+  document.querySelectorAll(".goal-btn").forEach(b => b.classList.remove("selected"));
+  document.getElementById("train-messages").innerHTML = "";
+  document.getElementById("days-next-btn").disabled = true;
+  document.getElementById("goal-next-btn").disabled = true;
+  document.getElementById("level-next-btn").disabled = true;
+  document.getElementById("tstep-goal").style.display = "none";
+  document.getElementById("tstep-level").style.display = "none";
+  document.getElementById("tstep-days").style.display = "block";
+  [1,2,3].forEach(i => document.getElementById("tdot-"+i).classList.remove("active"));
+  document.getElementById("tdot-1").classList.add("active");
+  document.getElementById("step-training-chat").style.display = "none";
+  document.getElementById("step-training-setup").style.display = "block";
+}
+
+// ═══════════════════════════════════════
+// ESCÁNER
+// ═══════════════════════════════════════
+async function handleScanPhoto(input) {
+  const file = input.files[0]; if (!file) return;
+  const preview = URL.createObjectURL(file);
+  const zone = document.getElementById("drop-zone");
+  zone.innerHTML = `<img src="${preview}" alt="plato" /><div class="drop-hint" style="color:var(--green-light);font-size:13px;font-weight:600;margin-top:8px">Toca para analizar otra foto</div><div class="scan-overlay"><div style="font-size:34px;margin-bottom:10px">🔍</div><div style="color:#86bc8f;font-weight:700;margin-bottom:8px">Analizando plato...</div><div style="display:flex;gap:5px"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;
+  const resultEl = document.getElementById("scan-result");
+  resultEl.style.display = "none"; resultEl.textContent = "";
+  const b64 = await toBase64(file);
+  try {
+    const reply = await callClaude([{ role:"user", content:[
+      { type:"image", source:{ type:"base64", media_type:file.type, data:b64 }},
+      { type:"text", text:"Analiza este plato." }
+    ]}], SCANNER_SYSTEM, 800);
+    zone.querySelector(".scan-overlay")?.remove();
+    resultEl.textContent = reply; resultEl.style.display = "block";
+    const time = new Date().toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
+    scanHistory.unshift({ preview, result:reply, time });
+    renderScanHistory();
+  } catch(e) {
+    zone.querySelector(".scan-overlay")?.remove();
+    resultEl.textContent = "❌ Error analizando. Asegúrate de que sea una foto clara de comida.";
+    resultEl.style.display = "block";
+  }
+  input.value = "";
+}
+
+function renderScanHistory() {
+  const el = document.getElementById("scan-history");
+  if (scanHistory.length <= 1) { el.innerHTML = ""; return; }
+  el.innerHTML = `<div class="history-label">Historial de hoy</div>` +
+    scanHistory.slice(1).map(h => `<div class="history-item"><img class="history-thumb" src="${h.preview}" /><div style="flex:1;min-width:0"><div class="history-meta">${h.time}</div><div class="history-text">${h.result}</div></div></div>`).join("");
+}
+
+// ═══════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════
+function appendBubble(containerId, text, isUser, theme) {
+  const container = document.getElementById(containerId);
+  const wrap = document.createElement("div");
+  wrap.className = "bubble-wrap" + (isUser ? " user" : "");
+  if (!isUser) {
+    const av = document.createElement("div");
+    av.className = "ai-avatar" + (theme === "orange" ? " orange" : "");
+    av.textContent = theme === "orange" ? "💪" : "🥗";
+    wrap.appendChild(av);
+  }
+  const bubble = document.createElement("div");
+  bubble.className = "bubble" + (isUser ? " user" : theme === "orange" ? " orange-bubble" : "");
+  bubble.textContent = text;
+  wrap.appendChild(bubble);
+  container.appendChild(wrap);
+  wrap.scrollIntoView({ behavior:"smooth", block:"end" });
+}
+
+function showTyping(containerId, theme) {
+  const container = document.getElementById(containerId);
+  const t = document.createElement("div");
+  t.className = "typing"; t.id = containerId + "-typing";
+  const av = document.createElement("div");
+  av.className = "ai-avatar" + (theme === "orange" ? " orange" : "");
+  av.textContent = theme === "orange" ? "💪" : "🥗";
+  t.appendChild(av);
+  const tb = document.createElement("div");
+  tb.className = "typing-bubble";
+  tb.innerHTML = `<div class="dot${theme==="orange"?" orange":""}"></div><div class="dot${theme==="orange"?" orange":""}"></div><div class="dot${theme==="orange"?" orange":""}"></div>`;
+  t.appendChild(tb);
+  container.appendChild(t);
+  t.scrollIntoView({ behavior:"smooth", block:"end" });
+}
+
+function hideTyping(containerId) {
+  document.getElementById(containerId + "-typing")?.remove();
+}
+
+function createLoader(emoji, title, sub, theme) {
+  const div = document.createElement("div");
+  div.className = "loading-center";
+  div.innerHTML = `<div class="loading-emoji">${emoji}</div><div class="loading-title${theme==="orange"?" orange":""}">${title}</div><div class="loading-sub">${sub}</div><div class="dots-center"><div class="dot${theme==="orange"?" orange":""}"></div><div class="dot${theme==="orange"?" orange":""}"></div><div class="dot${theme==="orange"?" orange":""}"></div></div>`;
+  return div;
+}
+
+function setInput(id, text) { document.getElementById(id).value = text; }
+function handleKey(e, inputId, fn) { if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); fn(); } }
+
+function toBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(",")[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+</script>
+</body>
+</html>
